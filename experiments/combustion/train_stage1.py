@@ -1,4 +1,4 @@
-"""Stage 1: 5,000 one-step updates from the pre-training checkpoint. Identical for the four models.
+"""Stage 1: 5,000 one-step updates from the pre-training checkpoint. Identical for the three models.
 
 usage: python train_stage1.py --arm <arm> --out <run_dir> [--smoke]
 The run is resumable: start the same command again and it continues from <run_dir>/last.pt.

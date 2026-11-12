@@ -1,4 +1,4 @@
-"""Closed-loop evaluation at short horizons, on the validation conditions or on the two test groups.
+"""Closed-loop evaluation at short horizons, on the validation conditions or on the held-out test conditions.
 
 Every checkpoint given is rolled out 20 frames from windows starting every 50 frames (40 per trajectory). Stored per
 window and field: the normalised MSE over the first h predicted frames, h in {1, 5, 10, 20}; the same for two
@@ -55,7 +55,7 @@ def main():
     norm = json.loads(a.normalization.read_text())['normalization']
     data = CombustionData()
     data.set_normalization(norm)
-    groups = {'validation': data.val} if a.split == 'validation' else data.test
+    groups = {a.split: data.val if a.split == 'validation' else data.test}
     result = {'arm': a.arm, 'split': a.split, 'starts': STARTS, 'horizons': HORIZONS,
               'groups': {g: [data.ids[r] for r in rows] for g, rows in groups.items()}, 'trivial': {}, 'checkpoints': {}}
     with torch.inference_mode():

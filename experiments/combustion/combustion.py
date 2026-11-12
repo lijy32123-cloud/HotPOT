@@ -1,4 +1,4 @@
-"""Simulated combustion: data access and the four models compared in the appendix.
+"""Simulated combustion: data access and the three models compared in the appendix.
 
 Every model reads the past 10 frames of the same 15 fields and nothing else: no fuel blend, equivalence ratio or
 trajectory label, no future frame, no hidden solver state.
@@ -6,8 +6,6 @@ trajectory label, no future frame, no hidden solver state.
   moepot               MoE-POT-T (official code) with new 15-field input and output layers
   hotpot_direct        shared pre-trained history encoder + a new private predictor of the next state
   hotpot_increment     same network as hotpot_direct; the output is the increment, the update adds it to the last frame
-  hotpot_conservation  same encoder; the predictor outputs 22 typed coefficients and physics.ReactiveStep advances
-                       eight molar pools, three momentum components and total energy
 
 Environment:
   COMBUSTION_CACHE     the .npy written by prepare_data.py (its .json lies next to it)
@@ -31,7 +29,7 @@ import torch.nn.functional as F
 
 BASE = Path(__file__).resolve().parent
 sys.path.insert(0, os.environ.get('HOTPOT_CODE', str(BASE.parents[1])))  # the repository root (package `hotpot`)
-ARMS = ('moepot', 'hotpot_direct', 'hotpot_increment', 'hotpot_conservation')
+ARMS = ('moepot', 'hotpot_direct', 'hotpot_increment')
 FIELDS = ('p_abs', 'heat_release', 'CH4', 'CO', 'CO2', 'H2O', 'NH2', 'NH3', 'OH', 'p_gauge', 'T', 'u', 'v', 'w', 'speed')
 SEED = 20261108
 
@@ -97,43 +95,6 @@ class MoEAdapter(nn.Module):
         return self.core(h)[0][..., 0, :]
 
 
-class ConservationExpert(nn.Module):
-    """The direct network with a 22-channel typed readout, executed by the fixed program of physics.py."""
-
-    def __init__(self, core, normalization):
-        super().__init__()
-        from physics import ReactiveStep, OUTPUTS
-        self.core = core
-        self.stepper = ReactiveStep(normalization)
-        old = core.head.net[-1]
-        layer = nn.Conv2d(old.in_channels, OUTPUTS, 1)
-        nn.init.normal_(layer.weight, std=1e-4)
-        nn.init.zeros_(layer.bias)
-        with torch.no_grad():
-            layer.weight[:15].copy_(old.weight)
-            layer.bias[:15].copy_(old.bias)
-        core.head.net[-1] = layer
-
-    def forward(self, h):
-        b, hh, ww, nt, nc = h.shape
-        up = F.interpolate(h.permute(0, 3, 4, 1, 2).reshape(b, nt * nc, hh, ww), size=(128, 128), mode='bilinear', align_corners=False)
-        up = up.reshape(b, nt, nc, 128, 128).permute(0, 3, 4, 1, 2).contiguous()
-        c = self.core
-        values = h.new_zeros(b, c.nconditions)
-        mask = torch.zeros_like(values)
-        feat, fmask, mean, logscale, lags = c.chart(up)
-        memory = c.shared_analyzer(feat, fmask, lags)
-        private = c.private_mixer(memory, fmask, mean, logscale, values, mask)
-        decoded = c.decoder(private)
-
-        def query(state):
-            current = F.interpolate(state.permute(0, 3, 1, 2), size=(128, 128), mode='bilinear', align_corners=False)
-            r = c.head(decoded, current, values, mask)
-            return F.interpolate(r, size=(hh, ww), mode='bilinear', align_corners=False).permute(0, 2, 3, 1)
-
-        return self.stepper(h, query)
-
-
 @contextmanager
 def _official_moepot():
     """The official MoEPOTNet class, imported from MOEPOT_CODE without leaving `models.*` in sys.modules."""
@@ -191,7 +152,9 @@ def _build_moepot(seed):
 
 
 def build(arm, normalization=None, seed=SEED):
-    """Model initialised from its six-dataset pre-training checkpoint, and a ledger of what was reused."""
+    """Model initialised from its six-dataset pre-training checkpoint, and a ledger of what was reused.
+
+    `normalization` is accepted for a uniform call signature; the three models do not need it to be built."""
     assert arm in ARMS
     if arm == 'moepot':
         model, source, copied, adaptation = _build_moepot(seed)
@@ -199,10 +162,6 @@ def build(arm, normalization=None, seed=SEED):
         model, source, copied, adaptation = _build_direct(seed)
         if arm == 'hotpot_increment':
             adaptation += '; the head output is the increment of the standardised state'
-        if arm == 'hotpot_conservation':
-            assert normalization is not None
-            model = ConservationExpert(model, normalization)
-            adaptation += '; 22-channel typed readout executed by the fixed conservation-form program'
     model.combustion_arm = arm
     ledger = {'arm': arm, 'source': source.name, 'copied_state_elements': copied,
               'stored_parameters': sum(p.numel() for p in model.parameters()),
@@ -223,11 +182,8 @@ def _network(model, h):
 
 def predict(model, h):
     """h: (batch, 64, 64, 10, 15) standardised history -> (batch, 64, 64, 15) standardised next frame."""
-    arm = model.combustion_arm
-    if arm == 'hotpot_conservation':
-        return model(h)
     out = _network(model, h)
-    return h[..., -1, :] + out if arm == 'hotpot_increment' else out
+    return h[..., -1, :] + out if model.combustion_arm == 'hotpot_increment' else out
 
 
 class CombustionData:
@@ -240,8 +196,8 @@ class CombustionData:
         self.split = json.loads((BASE / 'SPLIT_MANIFEST.json').read_text())
         self.train = [self.ids.index(n) for n in self.split['train']]
         self.val = [self.ids.index(n) for n in self.split['validation']]
-        self.test = {k: [self.ids.index(n) for n in self.split[k]] for k in ['test_joint_condition_interpolation', 'test_unseen_fuel_composition']}
-        assert len(self.train) == 18 and len(self.val) == 3
+        self.test = [self.ids.index(n) for n in self.split['test']]
+        assert len(self.train) == 18 and len(self.val) == 3 and len(self.test) == 3
         self.mu = None
         self.std = None
 

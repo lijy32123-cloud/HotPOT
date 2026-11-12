@@ -1,10 +1,10 @@
-"""Stage 2: continue the one-step training of a stage-1 run under one plateau controller. Identical for the four models.
+"""Stage 2: continue the one-step training of a stage-1 run under one plateau controller. Identical for the three models.
 
 Restores the model, the AdamW moments and the random state of <stage1>/last.pt (update 5,000), keeps the same loss and
 the same counter-based sampling, and validates every 2,500 updates with 100-frame closed-loop rollouts. Three
 checkpoints are kept: best.pt (lowest relative L2), best_std_diagnostic.pt (lowest normalised MSE) and last.pt.
 The controller halves the learning rate after six validations without a 0.5% improvement in any of three monitors and
-stops after another six at the floor. The reported runs were stopped before that point (see README).
+stops after another six at the floor.
 
 usage: python train_stage2.py --arm <arm> --stage1 <stage-1 run_dir> --out <run_dir> [--smoke]
 """

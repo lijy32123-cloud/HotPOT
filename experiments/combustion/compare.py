@@ -1,9 +1,9 @@
 """Table of the combustion experiment from the files written by evaluate.py.
 
 For each model and horizon the checkpoint with the lowest validation normalised MSE is selected; its test error is
-reported per test group, with a paired bootstrap (20,000 resamples of test windows) against MoE-POT-T.
+reported with a paired bootstrap (20,000 resamples of test windows) against MoE-POT-T.
 
-usage: python compare.py <dir>     # <dir>/validation_<arm>.json and <dir>/test_<arm>.json for the four arms
+usage: python compare.py <dir>     # <dir>/validation_<arm>.json and <dir>/test_<arm>.json for the three arms
 """
 import json
 import sys
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import numpy as np
 
-ARMS = ('moepot', 'hotpot_direct', 'hotpot_conservation', 'hotpot_increment')
+ARMS = ('moepot', 'hotpot_direct', 'hotpot_increment')
 HORIZONS = ('1', '5', '10', '20')
 
 
