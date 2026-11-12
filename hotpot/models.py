@@ -58,10 +58,19 @@ def build_model(scale=17, variant='full', *, workspace=None, config=None, target
     return model
 
 
+EXPERT_GROUPS = ('private_mixers', 'action_context_decoders', 'programs')
+EXPERT_FAMILIES = ('fno', 'cns', 'swe', 'dr', 'cfdb')
+
+
 def load_checkpoint(model, path):
     """Strictly load a tensor state or a training/transfer checkpoint.
 
     Loading uses ``weights_only=True``. Optimizer state is not needed for inference.
+
+    A single-expert file (``meta['single_expert']`` names a PDE family) stores the shared
+    history encoder and that family's expert only. Its tensors must match the model exactly;
+    the experts of the other families are absent from the file, keep their initial values and
+    are never executed for inputs of the stored family.
     """
     snapshot = torch.load(Path(path), map_location='cpu', weights_only=True)
     for key in ('full_model_state', 'model', 'model_state', 'state_dict'):
@@ -70,5 +79,19 @@ def load_checkpoint(model, path):
             break
     else:
         state = snapshot
-    model.load_state_dict(state, strict=True)
+    meta = snapshot.get('meta') if isinstance(snapshot, dict) else None
+    family = meta.get('single_expert') if isinstance(meta, dict) else None
+    if family is None:
+        model.load_state_dict(state, strict=True)
+        return snapshot
+    if family not in EXPERT_FAMILIES:
+        raise ValueError(f'unknown expert family: {family}')
+    result = model.load_state_dict(state, strict=False)
+
+    def other_expert(name):
+        return any(name.startswith(f'model.{group}.') and not name.startswith(f'model.{group}.{family}.')
+                   for group in EXPERT_GROUPS)
+
+    if result.unexpected_keys or not all(other_expert(name) for name in result.missing_keys):
+        raise RuntimeError('single-expert file does not match the shared encoder and the selected expert')
     return snapshot

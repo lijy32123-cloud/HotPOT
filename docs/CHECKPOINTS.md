@@ -57,6 +57,34 @@ full horizon and scored with the masked space–time relative L2 error described
 | HotPOT-S | finetune | DR | `HotPOT-S_dr_pdb_finetune_E200.pt` | 0:60 | 91 | 0.00436468 | 0.00436 |
 | HotPOT-S | finetune | CFDB | `HotPOT-S_cfdbench_finetune_E200.pt` | 0:1000 | 10 | 0.00202275 | 0.00202 |
 
+## Single-expert files
+
+Fine-tuning updates the shared history encoder and the expert of the target family only; the experts of the other
+families stay frozen and are never executed for that family. A deployed single-task model therefore needs the shared
+encoder and one expert. `single_expert/` holds such a copy of each of the twelve fine-tuned models, written by
+`tools/prune_checkpoint.py` and loaded by the same `hotpot.load_checkpoint`. The kept tensors are bitwise identical to
+those in the full files, and predictions agree bit for bit with the full files in every case we ran (the five
+non-CFDB settings at the 17M scale and SWE at the 90M scale, on a fixed input).
+
+| Model | Setting | Expert kept | Stored elements | File bytes | Full file bytes | Reduction |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| HotPOT-T | NS 1e-5 | `fno` | 16,776,785 | 67,160,183 | 391,855,807 | 82.9% |
+| HotPOT-T | NS 1e-3 | `fno` | 16,776,785 | 67,160,183 | 391,855,807 | 82.9% |
+| HotPOT-T | CNS (0.1, 0.01) | `cns` | 17,178,004 | 68,767,259 | 391,867,115 | 82.5% |
+| HotPOT-T | SWE | `swe` | 16,770,577 | 67,133,755 | 391,852,123 | 82.9% |
+| HotPOT-T | DR | `dr` | 16,903,188 | 67,663,911 | 391,851,445 | 82.7% |
+| HotPOT-T | CFDB | `cfdb` | 38,326,966 | 153,382,427 | 391,852,737 | 60.9% |
+| HotPOT-S | NS 1e-5 | `fno` | 89,590,881 | 358,434,071 | 2,074,236,287 | 82.7% |
+| HotPOT-S | NS 1e-3 | `fno` | 89,590,881 | 358,434,071 | 2,074,236,287 | 82.7% |
+| HotPOT-S | CNS (0.1, 0.01) | `cns` | 91,185,956 | 364,817,435 | 2,074,250,987 | 82.4% |
+| HotPOT-S | SWE | `swe` | 89,584,673 | 358,407,355 | 2,074,231,387 | 82.7% |
+| HotPOT-S | DR | `dr` | 90,112,036 | 360,516,407 | 2,074,230,581 | 82.6% |
+| HotPOT-S | CFDB | `cfdb` | 205,620,838 | 822,581,403 | 2,074,232,193 | 60.3% |
+
+The CFDB file keeps all three geometry paths (cavity, cylinder, tube). For reference, the MoE-POT-T and MoE-POT-S models
+store 30M and 166M parameters (about 121 MB and 664 MB in FP32); their routing is input-dependent, so all experts must
+be kept for a single task.
+
 ## Command
 
 Place the files under `workspace/checkpoints/` and the data as described in [DATA.md](DATA.md), then for example:
