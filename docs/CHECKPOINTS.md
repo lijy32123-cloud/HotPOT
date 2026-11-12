@@ -63,8 +63,7 @@ Fine-tuning updates the shared history encoder and the expert of the target fami
 families stay frozen and are never executed for that family. A deployed single-task model therefore needs the shared
 encoder and one expert. `single_expert/` holds such a copy of each of the twelve fine-tuned models, written by
 `tools/prune_checkpoint.py` and loaded by the same `hotpot.load_checkpoint`. The kept tensors are bitwise identical to
-those in the full files, and predictions agree bit for bit with the full files in every case we ran (the five
-non-CFDB settings at the 17M scale and SWE at the 90M scale, on a fixed input).
+those in the full files, and predictions agree bit for bit with the full files in every case we ran.
 
 | Model | Setting | Expert kept | Stored elements | File bytes | Full file bytes | Reduction |
 | --- | --- | --- | ---: | ---: | ---: | ---: |

@@ -69,7 +69,7 @@ def test_coefficient_subsets_and_rates(target):
         assert len(rows) == shots and len(validation) == 256
         assert not set(rows) & set(validation)
         assert validation == tuple(range(TARGETS[target].rows - 256, TARGETS[target].rows))
-        assert maximum_learning_rate('fewshot-train', target, shots) == (ns_rate if target == 'fno_1e-4' else 1e-4)
+        assert maximum_learning_rate('fewshot-train', target, shots) == (ns_rate if target == 'fno_1e-4' else 1e-3)
         previous = rows
 
 

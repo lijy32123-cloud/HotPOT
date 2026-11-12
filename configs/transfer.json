@@ -28,7 +28,13 @@
       "64": 0.0001,
       "256": 1e-05
     },
-    "cns_max_lr": 0.0001,
+    "cns_max_lr": 0.001,
+    "max_lr_candidates": [
+      0.001,
+      0.0001,
+      1e-05
+    ],
+    "max_lr_selection": "minimum full-rollout validation error for each target and budget",
     "validation_rows": 256,
     "validation_horizons": {
       "NS": 20,

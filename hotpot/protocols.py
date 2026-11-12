@@ -17,11 +17,20 @@ def training_seed(mode):
     return 20260815 if mode.startswith('known-') else 20260831
 
 
+# Few-shot maximum learning rates, selected for each target and budget from
+# FEWSHOT_LR_CANDIDATES by the lowest full-rollout validation error.
+FEWSHOT_LR_CANDIDATES = (1e-3, 1e-4, 1e-5)
+FEWSHOT_MAX_LR = {
+    'fno_1e-4': {16: 1e-4, 64: 1e-4, 256: 1e-5},
+    'cns_m1_eta1e-2': {16: 1e-3, 64: 1e-3, 256: 1e-3},
+}
+
+
 def maximum_learning_rate(mode, task, shots=None):
     if mode.startswith('known-'):
         return KNOWN_MAX_LR[task]
-    if mode.startswith('fewshot-') and task == 'fno_1e-4' and shots == 256:
-        return 1e-5
+    if mode.startswith('fewshot-'):
+        return FEWSHOT_MAX_LR.get(task, {}).get(shots, 1e-4)
     return 1e-4
 
 
