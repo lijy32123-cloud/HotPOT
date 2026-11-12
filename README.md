@@ -21,7 +21,7 @@ python -m pip install -r requirements.txt
 | HotPOT-17M | 256 | 2 | 512 | 5 | 17M |
 | HotPOT-90M | 512 | 3 | 1024 | 7 | 90M |
 
-Both models use 10 history frames and predict one next state. The model size denotes activated parameters; `model.parameter_ledger()` also reports total stored parameters. The 14 checkpoints behind the 24 HotPOT entries of Table 1 are released separately; [docs/CHECKPOINTS.md](docs/CHECKPOINTS.md) lists each file, its SHA-256, the test rows, the expected error and the evaluation command. The real-combustion expert added during the discussion period is in [experiments/combustion](experiments/combustion/README.md).
+Both models use 10 history frames and predict one next state. The model size denotes activated parameters; `model.parameter_ledger()` also reports total stored parameters. The 14 checkpoints behind the 24 HotPOT entries of Table 1 are released separately; [docs/CHECKPOINTS.md](docs/CHECKPOINTS.md) lists each file, its SHA-256, the test rows, the expected error and the evaluation command. The simulated-combustion experiment added during the discussion period (a 15-field reacting flow as a new family) is in [experiments/combustion](experiments/combustion/README.md).
 
 ```python
 from hotpot import build_model, load_checkpoint

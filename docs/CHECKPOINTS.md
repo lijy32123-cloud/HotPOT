@@ -4,7 +4,7 @@ The 14 files below reproduce the 24 HotPOT entries of Table 1 without any traini
 tensors (`{"model": state_dict, "meta": {...}}`) and loads with `hotpot.load_checkpoint`. The tensors are bitwise
 identical to the checkpoints evaluated for the paper; optimiser state and run metadata were removed.
 
-Download location: [TODO: anonymous weights link]
+Download location: https://anonymous-hf.com/a/ryou1c8aizn3/
 
 ## Files
 

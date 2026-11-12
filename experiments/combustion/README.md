@@ -1,86 +1,122 @@
-# Real combustion (OH\* intensity): modal state-space expert
+# Simulated combustion: a 15-field reacting flow as a new family
 
-This folder holds the expert used for the RealPDEBench real-combustion task added during the
-discussion period. The task observes one field only, the OH\* chemiluminescence intensity `I`
-(64×64): 20 observed frames in, 20 frames out, and 40/60 frames by feeding predictions back,
-with the official splits (46,223 / 5,718 / 5,719 windows from 30 trajectories), normalisation
-and `evaluate()` routine. No velocity, temperature, species or operating-condition label
-enters any model.
+This folder holds the coupled reacting-flow experiment added during the discussion period (appendix,
+"Simulated combustion"). It replaces an earlier single-channel probe on real OH\* images, which is
+withdrawn.
 
-## Why a different update is needed here
+## Data and split
 
-`I` is a line-of-sight emission signal, not a closed state: it has no conservation law of its
-own and no pointwise evolution equation in the observed variable. Its predictable content is a
-low-dimensional global pulsation of the flame (one POD mode carries 56% of the fluctuation
-energy, four carry 72%). A predictor that writes pixels and is fed its own pixels back loses
-this leading mode over successive blocks, which is why the direct-state predictor degrades
-from 20 to 60 frames.
+RealPDEBench, simulated combustion: NH3/CH4 flames at 30 operating conditions (fuel blend 0–80% NH3,
+equivalence ratio 0.75–1.3), 2,001 frames each. Each frame has 15 coupled fields: absolute and gauge
+pressure, heat release, seven species (CH4, CO, CO2, H2O, NH2, NH3, OH), temperature, three velocity
+components and speed. The released 128×128 fields are subsampled by 2 to 64×64, as the official loader
+does (`prepare_data.py`).
 
-## The expert
+The published split files of this subset are empty, so `SPLIT_MANIFEST.json` fixes a whole-condition
+split, written before any training:
 
-The expert keeps the paper's interface: a learned predictor supplies quantities, and a fixed
-program with no trainable parameters turns them into the next state.
+| Part | Conditions |
+| --- | --- |
+| Training | 18 |
+| Validation | 3 |
+| Interpolation test | 3, inside the training ranges of fuel blend and equivalence ratio |
+| Extrapolation test | 6, with 60% or 80% NH3 (training has 0–40%) |
 
-1. **Fixed basis.** Mean image and 128 POD modes from the start frames of the training windows
-   (`build_basis.py`). Projection and reconstruction are fixed linear maps.
-2. **Observation step (first block, real history).** The fine-tuned HotPOT predictor
-   (`network/`, initialised from the six-PDE checkpoint) predicts the next 20 frames; the
-   program projects them onto the basis (`project_network.py`). A compact modal propagator
-   reads the modal history, and the two estimates are fused by 18 fixed scalar gains
-   (6 mode groups × 3 lead-time groups).
-3. **Time step (later blocks).** The state carried forward is the block of modal amplitudes,
-   not pixels. A modal propagator (ridge-initialised linear map plus a small correction
-   network on the first 64 modes) advances it one block; the program reconstructs the field.
-4. **State recognition.** The official evaluation calls the model again on its own output.
-   The program tells an observed history from a state it synthesised itself by the residual
-   outside the basis (observed ≥ 4.4e-4, synthesised ≤ 5.9e-9; no misclassification in
-   68,598 calls) and applies step 2 or step 3 accordingly.
+## Task and models
 
-`modal_expert.py` fits the propagators and gains and runs the official evaluation.
+Input: 10 frames; target: the next frame; longer horizons feed predictions back. No operating-condition
+label enters any model. Fields are standardised with per-field training statistics; networks run at
+128×128 (bilinear resize in and out) and are scored at 64×64.
 
-## Results (official `evaluate()`, test RMSE, lower is better)
+| Arm | Model | Stored parameters |
+| --- | --- | ---: |
+| `moepot` | MoE-POT-T (official code), new 15-field input and output layers | 30,191,384 |
+| `hotpot_direct` | shared pre-trained history encoder + new private predictor of the next state | 18,626,335 |
+| `hotpot_increment` | same network; the output is the increment and the fixed update adds it to the current state | 18,626,335 |
+| `hotpot_conservation` | same encoder; 22 typed coefficients per cell, executed by a fixed finite-volume, reaction and exchange program on eight molar pools, three momentum components and total energy (`physics.py`) | 18,627,249 |
 
-| Model | Active parameters | 20 frames | 40 frames | 60 frames |
+All four start from six-dataset pre-training checkpoints: HotPOT-T (E1000, released) and a MoE-POT-T
+trained by us with the official code and tiny configuration on the same six datasets for 1000 epochs.
+
+## Training (one script per stage, identical for the four models)
+
+1. `train_stage1.py`: 5,000 updates, AdamW (β = 0.9, 0.99; weight decay 1e-6), batch 8, learning rate
+   1e-4 with 100 warm-up updates and cosine decay, gradient norm clipped to 1, mean squared error of the
+   standardised next frame, FP32. All models see the same windows at the same update.
+2. `train_stage2.py`: continuation from update 5,000 with the optimiser state, at learning rate 3e-5,
+   under one plateau controller (`convergence.py`); validation every 2,500 updates with 100-frame
+   rollouts. Kept checkpoints: lowest relative L2, lowest normalised MSE, last.
+
+The reported runs were stopped before the controller's stopping criterion, at 111,000 (`moepot`),
+84,000 (`hotpot_direct`), 100,888 (`hotpot_increment`) and 112,250 (`hotpot_conservation`) updates.
+
+## Evaluation
+
+`evaluate.py` rolls every saved checkpoint out for 20 frames from windows starting every 50 frames (40
+per condition) and stores, per window and field, the mean squared error of the standardised fields over
+the first *h* predicted frames. `compare.py` selects, for each model and horizon, the checkpoint with
+the lowest validation error and reports its test error with a paired bootstrap over test windows.
+The reported test numbers were computed once, after this rule was fixed. (The 5,000-update stage of each
+run had earlier been scored on the test conditions with a relative-L2 metric; those scores were not
+used for selection.)
+
+### Interpolation test (3 conditions, 120 windows), normalised MSE
+
+| Model | h = 1 | h = 5 | h = 10 | h = 20 |
 | --- | ---: | ---: | ---: | ---: |
-| MoE-POT-T, fine-tuned | 19.65M | 0.020763 | 0.022462 | 0.024227 |
-| HotPOT direct-state predictor | 17.43M | 0.021110 | 0.026594 | 0.031544 |
-| HotPOT expert, network-only observation step | 17.44M + 5.31M | 0.020870 | 0.022009 | 0.023056 |
-| HotPOT expert | 19.34M + 5.31M | 0.020712 | 0.021914 | 0.022974 |
+| Repeat the last input frame | 0.251 | 0.786 | 0.818 | 0.852 |
+| Mean of the 10 input frames | 0.456 | 0.544 | 0.541 | 0.546 |
+| MoE-POT-T | 0.0545 | 0.148 | 0.272 | 0.430 |
+| HotPOT, direct-state predictor | 0.0346 | 0.125 | 0.287 | 0.474 |
+| HotPOT, conservation-form expert | 0.0850 | 0.231 | 0.343 | 0.536 |
+| HotPOT, increment expert | 0.0316 | 0.116 | 0.223 | 0.358 |
+| Increment expert vs MoE-POT-T | −42% [−45, −40] | −22% [−26, −17] | −18% [−22, −14] | −17% [−20, −14] |
 
-"a + b" lists the observation step and the time step; only one of them runs on a given block.
+The increment expert is lower than MoE-POT-T on all three conditions at every horizon and on 15, 14, 14
+and 11 of the 15 fields. With the last checkpoint of every model instead of the validation-selected one
+the differences are −42%, −20%, −16% and −15%.
 
-Paired bootstrap over the 30 test trajectories, HotPOT expert against MoE-POT:
-−0.25% [−0.97%, +0.37%] at 20 frames (not significant), −2.44% [−3.39%, −1.45%] at 40 and
-−5.17% [−7.19%, −2.99%] at 60; the expert is better on 19, 19 and 22 of 30 trajectories.
+### Extrapolation test (6 conditions with 60% or 80% NH3, 240 windows), normalised MSE
 
-### Controls
+| Model | h = 1 | h = 5 | h = 10 | h = 20 |
+| --- | ---: | ---: | ---: | ---: |
+| Repeat the last input frame | 2.08 | 5.66 | 7.05 | 7.66 |
+| Mean of the 10 input frames | 4.32 | 5.24 | 5.49 | 5.53 |
+| MoE-POT-T | 4.77 | 6.87 | 8.35 | 9.50 |
+| HotPOT, direct-state predictor | 2.16 | 4.96 | 7.17 | 8.79 |
+| HotPOT, conservation-form expert | 2.01 | 4.20 | 5.17 | 5.90 |
+| HotPOT, increment expert | 2.75 | 7.63 | 10.96 | 13.62 |
 
-| Model | 20 frames | 40 frames | 60 frames |
-| --- | ---: | ---: | ---: |
-| Direct-state network + the same program | 0.020837 | 0.022066 | 0.023048 |
-| MoE-POT-T + the same program | 0.020569 | 0.021738 | 0.022769 |
+Fields are standardised with training statistics, so values above 1 reflect states far outside the
+training range. No model is better than the two predictors without training.
 
-With the network held fixed, adding the program lowers the 40/60-frame error by 17% / 27%
-for the HotPOT direct-state network and by 3.2% / 6.0% for MoE-POT. The gain therefore comes
-from the predictor–update interface; on this task it is not specific to our backbone, and
-MoE-POT with the same program is 0.7–0.9% lower than our expert.
+### What the experiment shows and what it does not
 
-## Protocol notes
-
-- Learning rates {1e-4, 3e-4, 1e-3}, 10,000 updates, batch 16 and validation-RMSE selection
-  are shared by all fine-tuned networks.
-- The propagator size, the 18 gains and the checkpoint selection use the official validation
-  split; the test split is evaluated with the unmodified official routine.
-- This is a single observed channel. It tests the interface on a partially observed real
-  system; it is not a demonstration of coupled multi-field combustion modelling.
+- Only the one-step gain is stable across splits. On the three validation conditions it is −39%, but
+  MoE-POT-T is 11–12% lower there at 10 and 20 frames. Each split has three conditions.
+- The predictable horizon is short: at 100 frames the errors are 0.86 (increment expert) and 0.97
+  (MoE-POT-T), above the 0.52 of the input-mean predictor.
+- No model extrapolates to the unseen fuel blends.
+- The conservation-form expert is less accurate than the increment expert on the interpolation test.
+  The physics-structured update tried for this system did not improve accuracy; on the unseen blends it
+  degrades the least.
 
 ## Running
 
 ```bash
-export HOTPOT_CODE=<this repository> HOTPOT_T_CHECKPOINT=<HotPOT-T_pretrain_E1000.pt>
-export MOEPOT_CODE=<MoE-POT repository> MOEPOT_T_CHECKPOINT=<six-dataset MoE-POT-T checkpoint>
-python network/train.py --help                      # fine-tune the networks (task directory next to the code)
-python build_basis.py <task_dir> <modal_dir>
-python project_network.py <modal_dir> <network_run_dir>
-python modal_expert.py <network_run_dir> <moepot_run_dir> <modal_dir> <out_dir>
+export COMBUSTION_CACHE=<dir>/combustion_numerical.npy
+export HOTPOT_T_CHECKPOINT=<HotPOT-T_pretrain_E1000.pt>
+export MOEPOT_CODE=<official MoE-POT repository> MOEPOT_T_CHECKPOINT=<six-dataset MoE-POT-T checkpoint>
+python prepare_data.py <RealPDEBench>/combustion/hf_dataset/numerical <dir>/combustion_numerical
+python train_stage1.py --arm hotpot_increment --out runs/stage1/hotpot_increment
+python train_stage2.py --arm hotpot_increment --stage1 runs/stage1/hotpot_increment --out runs/stage2/hotpot_increment
+python evaluate.py --arm hotpot_increment --normalization runs/stage1/hotpot_increment/PROTOCOL.json --split validation \
+    --out results/validation_hotpot_increment.json best=runs/stage2/hotpot_increment/best.pt \
+    best_std=runs/stage2/hotpot_increment/best_std_diagnostic.pt last=runs/stage2/hotpot_increment/last.pt
+python compare.py results    # after validation_<arm>.json and test_<arm>.json exist for the four arms
 ```
+
+Stage 2 runs until its controller stops it or the process is interrupted (SIGTERM saves a checkpoint);
+starting the same command again resumes from `last.pt`. `prepare_data.py` additionally needs the
+`datasets` package. Both training scripts accept `--smoke` (two updates and a three-step rollout) and
+`--device cpu`.

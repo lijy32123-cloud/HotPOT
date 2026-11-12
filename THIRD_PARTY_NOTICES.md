@@ -7,3 +7,5 @@
 MoE-POT credits DPOT for its architecture. The data conventions and baseline evaluation protocol also build on MoE-POT. This anonymous release does not claim authorship of the AFNO component or grant additional rights to third-party code or datasets. Please consult the upstream projects and dataset providers for their applicable terms.
 
 PyTorch, NumPy, h5py, einops, and PyYAML are installed as dependencies and retain their respective licenses. Paper figures and the original HotPOT implementation are provided as anonymous research artifacts; this package does not add a new blanket license to third-party material.
+
+`experiments/combustion/THERMO_SOURCE.json` lists the standard formation enthalpies and NASA-7 coefficients of seven species taken from `data/gri30.yaml` of [Cantera](https://github.com/Cantera/cantera) (GRI-Mech 3.0). `experiments/combustion/prepare_data.py` reads the simulated combustion trajectories of RealPDEBench with the `datasets` package; neither the data nor that package is redistributed here.
