@@ -1,8 +1,7 @@
 # Simulated combustion: a 15-field reacting flow as a new family
 
 This folder holds the coupled reacting-flow experiment added during the discussion period (appendix,
-"Simulated combustion"). It replaces an earlier single-channel probe on real OH\* images, which is
-withdrawn.
+"Simulated combustion").
 
 ## Data and split
 
