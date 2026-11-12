@@ -1,0 +1,10 @@
+scale: 17
+variant: full
+workspace: ./workspace
+checkpoint: ./workspace/runs/full17/checkpoint_e1000.pt
+task: ns2d_fno_1e-5
+cfdb_test_sidecar: ./workspace/metadata/cfdb_test.json
+device: cuda
+batch_size: 4
+num_workers: 0
+output: ./workspace/results/full17_ns.json

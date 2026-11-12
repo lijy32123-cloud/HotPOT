@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hotpot-pde"
+version = "0.1.0"
+description = "Heterogeneous physics experts for PDE pre-training"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["torch>=2.4,<3", "numpy>=1.24,<3", "h5py>=3.10,<4", "einops>=0.7,<1", "PyYAML>=6,<7"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<9"]
+
+[tool.setuptools.packages.find]
+include = ["hotpot*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,57 @@
+{
+  "known": {
+    "epochs": 200,
+    "rng_seed": 20260815,
+    "global_batch": 40,
+    "microbatch": 20,
+    "selection": "fixed E200",
+    "max_learning_rate": {
+      "ns2d_fno_1e-5": 1e-05,
+      "ns2d_fno_1e-3": 0.001,
+      "ns2d_pdb_M1e-1_eta1e-2_zeta1e-2": 0.0001,
+      "swe_pdb": 0.001,
+      "dr_pdb": 0.001,
+      "cfdbench": 1e-05
+    }
+  },
+  "coefficient_fewshot": {
+    "epochs": 500,
+    "replicate": 0,
+    "rng_seed": 20260831,
+    "shots": [
+      16,
+      64,
+      256
+    ],
+    "ns_max_lr": {
+      "16": 0.0001,
+      "64": 0.0001,
+      "256": 1e-05
+    },
+    "cns_max_lr": 0.0001,
+    "validation_rows": 256,
+    "validation_horizons": {
+      "NS": 20,
+      "CNS": 11
+    },
+    "selection": "minimum finite full-rollout per-channel L2RE every 10 epochs"
+  },
+  "wave": {
+    "epochs": 500,
+    "shots": [
+      16,
+      32,
+      64,
+      128
+    ],
+    "max_lr": 0.0001,
+    "selection": "minimum mean per-step rollout L2RE every 10 epochs"
+  },
+  "betas": [
+    0.9,
+    0.9
+  ],
+  "weight_decay": 1e-06,
+  "warmup_fraction": 0.2,
+  "target_ns_substeps": 8
+}

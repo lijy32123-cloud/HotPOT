@@ -1,0 +1,8 @@
+scale: 17
+workspace: ./workspace
+paths: configs/data_paths.json
+checkpoint: ./workspace/runs/full17/checkpoint_e1000.pt
+mode: zero-shot
+task: cns_m1_eta1e-2
+arm: transfer
+output: ./workspace/results/cns_zero_shot

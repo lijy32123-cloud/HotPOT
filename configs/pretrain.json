@@ -1,0 +1,31 @@
+{
+  "history_frames": 10,
+  "predicted_frames": 1,
+  "epochs": 1000,
+  "world_size": 2,
+  "local_batch_size": 20,
+  "global_batch_size": 40,
+  "seed": 20260815,
+  "learning_rate": 0.001,
+  "betas": [
+    0.9,
+    0.9
+  ],
+  "weight_decay": 1e-06,
+  "scheduler": "OneCycleLR",
+  "warmup_fraction": 0.2,
+  "updates_per_epoch": 545,
+  "source_ns_substeps": 4,
+  "input_noise": {
+    "scale": 0.0005,
+    "tasks": [
+      "NS_native_grid",
+      "DR"
+    ],
+    "clean_tasks": [
+      "CNS",
+      "SWE",
+      "CFDBench"
+    ]
+  }
+}

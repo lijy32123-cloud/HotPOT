@@ -1,0 +1,39 @@
+{
+  "schema": "dense_saved_frame_observation.v1",
+  "observation_variables": [
+    "velocity_x",
+    "velocity_y",
+    "pressure"
+  ],
+  "stored_grid": {
+    "height": 64,
+    "width": 64,
+    "layout": "cell_centered"
+  },
+  "public_grid": {
+    "height": 128,
+    "width": 128,
+    "resize": "bilinear_align_corners_false"
+  },
+  "temporal": {
+    "history_frames": 10,
+    "target_frames": 1,
+    "available_frames": 20,
+    "saved_frame_dt": "case_encoded_not_exposed"
+  },
+  "geometry_fields": {
+    "availability": "encoded_in_observations_only"
+  },
+  "boundary_condition_fields": {
+    "availability": "encoded_in_observations_only"
+  },
+  "physical_parameter_fields": {
+    "availability": "not_provided_per_sample"
+  },
+  "padding": {
+    "public_channels": 4,
+    "sentinel": 1.0
+  },
+  "training_rows": 9000,
+  "held_out_split_accessed": false
+}

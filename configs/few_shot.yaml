@@ -1,0 +1,10 @@
+scale: 17
+workspace: ./workspace
+paths: configs/data_paths.json
+checkpoint: ./workspace/runs/full17/checkpoint_e1000.pt
+mode: fewshot-train
+task: fno_1e-4
+shots: 64
+arm: transfer
+selection: original-val
+output: ./workspace/runs/ns_64shot

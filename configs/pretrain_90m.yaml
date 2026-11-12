@@ -1,0 +1,11 @@
+# Run with two GPUs. Paths are relative to the repository root.
+scale: 90
+variant: full
+workspace: ./workspace
+cfdb_sidecar: ./workspace/metadata/cfdb_train.json
+output: ./workspace/runs/full90
+epochs: 1000
+local_batch_size: 20
+num_workers: 8
+learning_rate: 0.001
+noise_scale: 0.0005
