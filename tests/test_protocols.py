@@ -48,6 +48,12 @@ def test_known_task_final_schedule_and_exposure(task, rate, updates):
     from hotpot._internal.data_protocol.manifest import BASE6
     assert maximum_learning_rate('known-train', task) == rate
     assert training_seed('known-train') == 20260815
+    # `finetune.py --mode known-train` runs one rank with batch 40 and microbatch 20
+    # at the task's own maximum learning rate; the execution check must accept all six.
+    from hotpot._internal.encoder.finetune_ddp import _e200_execution_profile
+    assert _e200_execution_profile(epochs=200, warmup_epochs=40, local_batch_size=40,
+                                   gradient_microbatch_size=20,
+                                   learning_rate=rate) == 'single_rank_e200_b40_micro20'
     index = next(i for i, row in enumerate(BASE6) if row.key == task)
     plan = TargetPhaseAwareEpochPlan(index, seed=20260815)
     sampler = DistributedAddressBatchSampler(plan, rank=0, world_size=1, local_batch_size=40)

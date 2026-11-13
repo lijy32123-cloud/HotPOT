@@ -55,7 +55,8 @@ REFERENCE_FINETUNE_UPDATES = 5_000
 REFERENCE_LOCAL_BATCH_SIZE = 20
 FIXED_UPDATE_WARMUP_FRACTION = 0.2
 CORRECTED_FINETUNE_MAX_LR = 1.0e-4
-CORRECTED_E200_MAX_LR = 1.0e-4
+# Maximum learning rates of the six pre-training tasks (hotpot.protocols.KNOWN_MAX_LR).
+SINGLE_RANK_E200_MAX_LRS = (1.0e-3, 1.0e-4, 1.0e-5)
 LEGACY_E200_MAX_LR = 1.0e-3
 
 
@@ -236,12 +237,12 @@ def _e200_execution_profile(
     if (
         local_batch_size == 40
         and gradient_microbatch_size == REFERENCE_LOCAL_BATCH_SIZE
-        and math.isclose(learning_rate, CORRECTED_E200_MAX_LR)
+        and any(math.isclose(learning_rate, value) for value in SINGLE_RANK_E200_MAX_LRS)
     ):
-        return "corrected_e200_task_parallel_lr1e-4"
+        return "single_rank_e200_b40_micro20"
     raise ValueError(
-        "E200 execution must be legacy DDP B40/lr1e-3 or corrected "
-        "single-rank B40/micro-B20/lr1e-4"
+        "E200 execution must be legacy DDP B40/lr1e-3 or single-rank "
+        "B40/micro-B20 at a registered task learning rate"
     )
 
 
@@ -409,9 +410,9 @@ def main() -> None:
             raise ValueError(
                 "fixed-update execution requires global-B40 and gradient micro-B20"
             )
-    elif e200_profile == "corrected_e200_task_parallel_lr1e-4":
+    elif e200_profile == "single_rank_e200_b40_micro20":
         if world != 1:
-            raise RuntimeError("corrected E200 task-parallel execution requires one rank")
+            raise RuntimeError("single-rank E200 execution requires one rank")
     elif world != 2:
         raise RuntimeError("legacy E200 fine-tuning requires exactly two ranks")
     gradient_microbatch_size = (
@@ -519,7 +520,7 @@ def main() -> None:
             if fixed_update_mode
             else (
                 "semantic_field_program_foundation.known_task_finetune.corrected_e200.v2"
-                if e200_profile == "corrected_e200_task_parallel_lr1e-4"
+                if e200_profile == "single_rank_e200_b40_micro20"
                 else "semantic_field_program_foundation.known_task_finetune.v1"
             )
         ),
